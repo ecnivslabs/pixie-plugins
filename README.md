@@ -2,6 +2,10 @@
 
 Plugin registry for [Pixie](https://github.com/ecnivslabs/pixie). Pixie downloads a signed `index.json` from this repository's GitHub Pages site and installs plugins from GitHub release assets, verifying every download against the hash recorded here.
 
+## Live index
+
+Pixie reads <https://ecnivslabs.github.io/pixie-plugins/index.json> and its signature at `index.json.sig`. The signing key's SHA-256 fingerprint (of the DER public key in `registry-signing.public.pem`) is `44f44636de9f5e05b6dfee91f134e3a4de8f8f06234efe40d54edc090a80b556`; compare it with the key pinned in Pixie before trusting a mirror.
+
 ## Tiers
 
 | Tier | Who | Review | Autoload |
