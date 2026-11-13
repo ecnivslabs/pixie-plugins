@@ -4,6 +4,7 @@ Everything here reads data only. Pull request content is never executed, so a
 hostile submission cannot run code in the validating workflow.
 """
 
+import gzip
 import json
 import posixpath
 import re
@@ -40,6 +41,9 @@ MAX_NATIVE_BYTES = 256 * 1024 * 1024
 ARCHIVE_SUFFIX = ".tar.gz"
 MAX_ENTRIES = 20000
 MAX_EXTRACTED_BYTES = 512 * 1024 * 1024
+# tar adds a 512 byte header and up to 511 bytes of padding per entry on top of file contents.
+TAR_OVERHEAD_PER_ENTRY = 1024
+MAX_INDEX_BYTES = 4 * 1024 * 1024
 RECORD_KEYS = {"name", "vers", "engines", "dl", "sha256", "size", "published_at", "yanked"}
 
 
@@ -293,6 +297,27 @@ def safe_entry_path(name):
     return normalized
 
 
+class BoundedReader:
+    """Reads a gzip stream and refuses to produce more than `limit` bytes.
+
+    Limiting only the compressed size does not bound the work: a few megabytes of gzip can expand
+    to gigabytes (CWE-409). Counting the decompressed output while streaming stops that early.
+    """
+
+    def __init__(self, fileobj, limit):
+        self.source = gzip.GzipFile(fileobj=fileobj, mode="rb")
+        self.remaining = limit
+
+    def read(self, size=-1):
+        if size is None or size < 0:
+            size = 65536
+        chunk = self.source.read(min(size, 65536))
+        self.remaining -= len(chunk)
+        if self.remaining < 0:
+            raise RegistryError("archive expands beyond its size limit")
+        return chunk
+
+
 def check_archive(fileobj, record):
     """Reject archives the client would refuse, before they are published.
 
@@ -304,7 +329,8 @@ def check_archive(fileobj, record):
     count = total = 0
     manifest = None
     try:
-        with tarfile.open(fileobj=fileobj, mode="r|gz") as archive:
+        bound = MAX_EXTRACTED_BYTES + MAX_ENTRIES * TAR_OVERHEAD_PER_ENTRY
+        with tarfile.open(fileobj=BoundedReader(fileobj, bound), mode="r|") as archive:
             for member in archive:
                 name = safe_entry_path(member.name)
                 if not (member.isreg() or member.isdir()):
@@ -319,7 +345,7 @@ def check_archive(fileobj, record):
                     if member.size > MAX_METADATA_BYTES:
                         raise RegistryError("package.json is too large")
                     manifest = archive.extractfile(member).read().decode("utf-8")
-    except (tarfile.TarError, EOFError, OSError, UnicodeDecodeError) as error:
+    except (tarfile.TarError, EOFError, OSError, UnicodeDecodeError, gzip.BadGzipFile) as error:
         raise RegistryError(f"archive is not a readable tar.gz: {error}") from error
     if manifest is None:
         raise RegistryError("archive has no package.json at its root")

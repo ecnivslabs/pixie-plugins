@@ -93,6 +93,18 @@ class ArchiveTests(unittest.TestCase):
         finally:
             registry.MAX_ENTRIES, registry.MAX_EXTRACTED_BYTES = original
 
+    def test_decompression_is_bounded_even_when_the_compressed_size_is_small(self):
+        import registry
+
+        bomb = build([reg("package.json", json.dumps(PACKAGE)), reg("filler.bin", "\0" * (6 * 1024 * 1024))])
+        original = (registry.MAX_EXTRACTED_BYTES, registry.MAX_ENTRIES)
+        try:
+            registry.MAX_EXTRACTED_BYTES, registry.MAX_ENTRIES = 1024 * 1024, 10
+            with self.assertRaisesRegex(RegistryError, "size limit"):
+                check_archive(bomb, record())
+        finally:
+            registry.MAX_EXTRACTED_BYTES, registry.MAX_ENTRIES = original
+
     def test_non_gzip_and_truncated_archives_are_rejected(self):
         with self.assertRaisesRegex(RegistryError, "readable tar.gz"):
             check_archive(io.BytesIO(b"not an archive"), record())

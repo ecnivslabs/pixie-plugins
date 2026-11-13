@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 from registry import (
+    MAX_INDEX_BYTES,
     NAME,
     RegistryError,
     ownership,
@@ -83,8 +84,13 @@ def validate_published(record, name):
 def main(root, output):
     now = datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0)
     document = build(root, now)
+    text = json.dumps(document, sort_keys=True, separators=(",", ":")) + "\n"
+    if len(text.encode("utf-8")) > MAX_INDEX_BYTES:
+        raise RegistryError(
+            f"index exceeds the {MAX_INDEX_BYTES} byte limit clients enforce; split or prune the registry"
+        )
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(document, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
+    output.write_text(text, encoding="utf-8")
     print(f"Indexed {len(document['plugins'])} plugin(s), version {document['version']}")
 
 

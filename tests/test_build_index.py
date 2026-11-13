@@ -34,6 +34,30 @@ class Tree(tempfile.TemporaryDirectory):
         self.write("owners/video.json", binding())
 
 
+class OutputTests(unittest.TestCase):
+    def test_an_index_larger_than_clients_accept_is_not_published(self):
+        import build_index
+        import registry
+
+        original = registry.MAX_INDEX_BYTES
+        try:
+            build_index.MAX_INDEX_BYTES = 100
+            with Tree() as tree:
+                tree.plugin()
+                with self.assertRaisesRegex(RegistryError, "limit clients enforce"):
+                    build_index.main(tree.root, tree.root / "out" / "index.json")
+        finally:
+            build_index.MAX_INDEX_BYTES = original
+
+    def test_a_normal_index_is_written(self):
+        import build_index
+
+        with Tree() as tree:
+            tree.plugin()
+            build_index.main(tree.root, tree.root / "out" / "index.json")
+            self.assertTrue((tree.root / "out" / "index.json").read_text().endswith("\n"))
+
+
 class BuildTests(unittest.TestCase):
     def test_document_lists_versions_meta_and_validity_window(self):
         with Tree() as tree:
