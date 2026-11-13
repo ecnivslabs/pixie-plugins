@@ -39,10 +39,10 @@ Names starting with `official`, `pixie` or `ecnivs` are reserved for official pl
 Create the version record from a release instead of computing hashes by hand:
 
 ```sh
-python3 tools/make_record.py <owner/repo> <release tag> <name>-<version>.tar.gz <name>
+python3 tools/make_record.py <owner/repo> <release tag> <name>-<version>.tar.gz <name> [<target>=<native asset> ...]
 ```
 
-It reads the release through `gh`, downloads the archive, checks the record against the same rules CI applies and prints one line to append to `index/<2 chars>/<name>`.
+Each `<target>=<native asset>` argument (for example `linux-x64=pixie-audio-linux-x64`) records a per-platform binary uploaded to the same release. The tool reads the release through `gh`, downloads the archive and native assets, checks the record against the same rules CI applies and prints one line to append to `index/<2 chars>/<name>`.
 
 Open a pull request that changes exactly one plugin.
 

@@ -42,10 +42,11 @@ class FakeResponse(io.BytesIO):
         return False
 
 
-def run(assets, data):
+def run(assets, data, natives=(), bodies=None):
+    queue = [data, *(bodies or [])]
     with mock.patch("make_record.urllib.request.build_opener") as opener:
-        opener.return_value.open.return_value = FakeResponse(data)
-        return make_record.build(FakeGitHub(assets), "ecnivslabs/pixie-plugins-dist", "video-1.0.0", "video-1.0.0.tar.gz", "video")
+        opener.return_value.open.side_effect = lambda *args, **kwargs: FakeResponse(queue.pop(0))
+        return make_record.build(FakeGitHub(assets), "ecnivslabs/pixie-plugins-dist", "video-1.0.0", "video-1.0.0.tar.gz", "video", natives)
 
 
 class MakeRecordTests(unittest.TestCase):
@@ -62,6 +63,27 @@ class MakeRecordTests(unittest.TestCase):
         self.assertEqual(record["size"], len(data))
         self.assertEqual(len(record["sha256"]), 64)
         self.assertEqual(record["published_at"], "2026-11-01T10:00:00Z")
+
+    def test_native_artifacts_are_recorded_per_target(self):
+        data = archive(self.package)
+        native = b"native-bytes"
+        assets = self.asset(data) + [
+            {"name": "pixie-audio-linux-x64", "state": "uploaded", "size": len(native), "created_at": "2026-11-01T10:00:00Z", "browser_download_url": URL.replace("video-1.0.0.tar.gz", "pixie-audio-linux-x64")}
+        ]
+        record = run(assets, data, ["linux-x64=pixie-audio-linux-x64"], [native])
+        self.assertEqual(list(record["native"]), ["linux-x64"])
+        self.assertEqual(record["native"]["linux-x64"]["size"], len(native))
+        self.assertEqual(len(record["native"]["linux-x64"]["sha256"]), 64)
+
+    def test_unknown_native_target_or_asset_is_refused(self):
+        data = archive(self.package)
+        with self.assertRaises(RegistryError):
+            run(self.asset(data), data, ["linux-x64=missing"], [b"x"])
+        assets = self.asset(data) + [
+            {"name": "n", "state": "uploaded", "size": 1, "created_at": "2026-11-01T10:00:00Z", "browser_download_url": URL.replace("video-1.0.0.tar.gz", "n")}
+        ]
+        with self.assertRaises(RegistryError):
+            run(assets, data, ["plan9-x64=n"], [b"x"])
 
     def test_missing_or_unfinished_assets_are_refused(self):
         data = archive(self.package)
