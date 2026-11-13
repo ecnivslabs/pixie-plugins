@@ -25,7 +25,7 @@ Names starting with `official`, `pixie` or `ecnivs` are reserved for official pl
 ### Version record
 
 ```json
-{"name":"video","vers":"1.0.0","engines":{"pixie":">=1.0.17 <2.0.0"},"dl":"https://github.com/ecnivslabs/pixie-plugins-dist/releases/download/video-1.0.0/video-1.0.0.tar.gz","sha256":"<64 lowercase hex>","size":1048576,"published_at":"2026-11-01T10:00:00Z","yanked":false}
+{"name":"video","vers":"1.0.0","engines":{"pixie":">=1.0.17 <2.0.0"},"dl":"https://github.com/ecnivslabs/pixie-plugins/releases/download/video-1.0.0/video-1.0.0.tar.gz","sha256":"<64 lowercase hex>","size":1048576,"published_at":"2026-11-01T10:00:00Z","yanked":false}
 ```
 
 - `engines.pixie` uses the grammar Pixie enforces for `package.json` (`>=`, `<=`, `>`, `<`, `=`, `^`, `~` comparators of full `MAJOR.MINOR.PATCH`, separated by spaces).
@@ -58,7 +58,7 @@ Open a pull request that changes exactly one plugin.
 5. for `official` plugins, the repository owner's numeric ID is in `official-owners.json`;
 6. the archive is a readable `.tar.gz` of plain relative paths holding only regular files and directories (no links, devices, `..` or absolute names, at most 20,000 entries and 512 MiB expanded), with a root `package.json` whose `pixie.plugin`, `version` and `engines.pixie` agree with the record. Entries are streamed and never extracted. Pixie repeats these checks when it installs.
 
-Closed-source official plugins keep their source in a private repository and publish compiled archives as release assets of a public distribution repository (`ecnivslabs/pixie-plugins-dist`), which is the repository bound in `owners/`. GitHub release assets inherit repository visibility, so a private repository cannot serve anonymous downloads.
+Closed-source official plugins keep their source in a private repository and publish only compiled archives as release assets of this repository, which is then the repository bound in `owners/`. GitHub release assets inherit repository visibility, so a private repository cannot serve anonymous downloads. Community plugins publish from their authors' own repositories and never use this repository's releases. Because `master` requires pull requests, the token that uploads official release files cannot change the index.
 
 Pull requests that touch anything else (metadata, owners, blocklist, workflows) get no automation and need a maintainer.
 
