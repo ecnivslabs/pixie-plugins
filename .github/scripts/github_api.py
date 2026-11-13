@@ -9,10 +9,11 @@ import json
 import os
 import re
 import subprocess
+import tempfile
 import urllib.request
 from urllib.parse import quote, urlsplit
 
-from registry import REPOSITORY, RegistryError, assets, release_location
+from registry import REPOSITORY, RegistryError, assets, check_archive, release_location
 
 TOKEN_VARIABLE = "REGISTRY_OWNERSHIP_TOKEN"
 
@@ -109,20 +110,26 @@ class HTTPSRedirects(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(request, fp, code, message, headers, new_url)
 
 
-def verify_download(asset, sha256, size, limit):
+def verify_download(asset, sha256, size, limit, check=None):
+    """Download an asset, verify size and SHA-256, and run `check` on the verified bytes."""
     if type(asset.get("size")) is not int or asset["size"] != size or size > limit:
         raise RegistryError("release asset size does not match the record or exceeds the limit")
     digest = hashlib.sha256()
     downloaded = 0
     request = urllib.request.Request(asset["browser_download_url"], headers={"User-Agent": "pixie-plugins-registry"})
-    with urllib.request.build_opener(HTTPSRedirects).open(request, timeout=60) as response:
-        while chunk := response.read(65536):
-            downloaded += len(chunk)
-            if downloaded > size:
-                raise RegistryError("release asset exceeds declared size")
-            digest.update(chunk)
-    if downloaded != size or digest.hexdigest() != sha256:
-        raise RegistryError("release asset size or SHA-256 mismatch")
+    with tempfile.TemporaryFile() as spool:
+        with urllib.request.build_opener(HTTPSRedirects).open(request, timeout=60) as response:
+            while chunk := response.read(65536):
+                downloaded += len(chunk)
+                if downloaded > size:
+                    raise RegistryError("release asset exceeds declared size")
+                digest.update(chunk)
+                spool.write(chunk)
+        if downloaded != size or digest.hexdigest() != sha256:
+            raise RegistryError("release asset size or SHA-256 mismatch")
+        if check is not None:
+            spool.seek(0)
+            check(spool)
 
 
 def verify_publication(github, publication, author, official_owners, download=verify_download):
@@ -143,7 +150,11 @@ def verify_publication(github, publication, author, official_owners, download=ve
         asset = github.release_asset(artifact["url"], repository_id)
         if artifact.get("target") is None and asset.get("created_at") != publication.record["published_at"]:
             raise RegistryError("published_at must equal the release asset creation time")
-        download(asset, artifact["sha256"], artifact["size"], artifact["limit"])
+        check = None
+        if artifact.get("target") is None:
+            record = publication.record
+            check = lambda spool, record=record: check_archive(spool, record)
+        download(asset, artifact["sha256"], artifact["size"], artifact["limit"], check)
         checked.add(key)
     repository = github.repository(f"repositories/{repository_id}", fresh=True)
     if repository["id"] != repository_id:

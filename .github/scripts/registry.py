@@ -5,7 +5,9 @@ hostile submission cannot run code in the validating workflow.
 """
 
 import json
+import posixpath
 import re
+import tarfile
 from dataclasses import dataclass
 from urllib.parse import unquote, urlsplit
 
@@ -36,6 +38,8 @@ MAX_METADATA_BYTES = 1024 * 1024
 MAX_ARCHIVE_BYTES = 64 * 1024 * 1024
 MAX_NATIVE_BYTES = 256 * 1024 * 1024
 ARCHIVE_SUFFIX = ".tar.gz"
+MAX_ENTRIES = 20000
+MAX_EXTRACTED_BYTES = 512 * 1024 * 1024
 RECORD_KEYS = {"name", "vers", "engines", "dl", "sha256", "size", "published_at", "yanked"}
 
 
@@ -271,3 +275,60 @@ def publication(changed, read_base, read_head):
         raise RegistryError("plugin is already registered")
     meta = validate_meta(parse_json(meta_text), name)
     return Publication(record, ownership(binding_text), meta, is_new, path)
+
+
+def safe_entry_path(name):
+    """Plain relative POSIX paths only; mirrors the client's assertSafeEntryPath."""
+    normalized = name[2:] if name.startswith("./") else name
+    parts = normalized.split("/")
+    if (
+        not normalized
+        or len(normalized) > 1024
+        or normalized.startswith("/")
+        or any(char in normalized for char in "\\:\0")
+        or any(part in {"", ".", ".."} for part in parts)
+        or posixpath.normpath(normalized) != normalized
+    ):
+        raise RegistryError(f"archive contains an unsafe path: {name!r}")
+    return normalized
+
+
+def check_archive(fileobj, record):
+    """Reject archives the client would refuse, before they are published.
+
+    Only regular files and directories are allowed (no links, devices or
+    fifos), entry names must be plain relative paths, sizes are bounded, and
+    the root package.json must agree with the registry record. Entries are read
+    as a stream and never extracted to disk.
+    """
+    count = total = 0
+    manifest = None
+    try:
+        with tarfile.open(fileobj=fileobj, mode="r|gz") as archive:
+            for member in archive:
+                name = safe_entry_path(member.name)
+                if not (member.isreg() or member.isdir()):
+                    raise RegistryError(f"archive entry is not a regular file or directory: {name}")
+                count += 1
+                total += member.size
+                if count > MAX_ENTRIES:
+                    raise RegistryError("archive has too many entries")
+                if total > MAX_EXTRACTED_BYTES:
+                    raise RegistryError("archive expands beyond its size limit")
+                if name == "package.json" and member.isreg():
+                    if member.size > MAX_METADATA_BYTES:
+                        raise RegistryError("package.json is too large")
+                    manifest = archive.extractfile(member).read().decode("utf-8")
+    except (tarfile.TarError, EOFError, OSError, UnicodeDecodeError) as error:
+        raise RegistryError(f"archive is not a readable tar.gz: {error}") from error
+    if manifest is None:
+        raise RegistryError("archive has no package.json at its root")
+    package = parse_json(manifest)
+    plugin = package.get("pixie", {}).get("plugin") if isinstance(package, dict) else None
+    if not isinstance(plugin, dict):
+        raise RegistryError("package.json has no pixie.plugin section")
+    if package.get("version") != record["vers"]:
+        raise RegistryError("package.json version differs from the registry record")
+    engines = package.get("engines")
+    if not isinstance(engines, dict) or engines.get("pixie") != record["engines"]["pixie"]:
+        raise RegistryError("package.json engines.pixie differs from the registry record")

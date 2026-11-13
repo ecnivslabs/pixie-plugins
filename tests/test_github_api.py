@@ -58,7 +58,8 @@ class VerifyPublicationTests(unittest.TestCase):
     def test_download_receives_the_declared_hash_and_size(self):
         seen = []
         self.run_verify(download=lambda *args: seen.append(args))
-        self.assertEqual(seen[0][1:], (fixtures.DIGEST, 1024, 64 * 1024 * 1024))
+        self.assertEqual(seen[0][1:4], (fixtures.DIGEST, 1024, 64 * 1024 * 1024))
+        self.assertIsNotNone(seen[0][4], "the archive must be layout checked")
 
     def test_official_tier_needs_an_official_owner(self):
         with self.assertRaisesRegex(RegistryError, "official account"):
@@ -113,9 +114,9 @@ class VerifyPublicationTests(unittest.TestCase):
         self.run_verify(
             github=FakeGitHub(assets=[ASSET, native_asset]),
             pub=publication(native=native),
-            download=lambda *args: seen.append(args[1:]),
+            download=lambda *args: seen.append((*args[1:4], args[4])),
         )
-        self.assertIn(("b" * 64, 10, 256 * 1024 * 1024), seen)
+        self.assertIn(("b" * 64, 10, 256 * 1024 * 1024, None), seen)
 
 
 class FakeResponse:

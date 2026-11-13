@@ -47,7 +47,8 @@ Open a pull request that changes exactly one plugin.
 2. JSON is strict (no duplicate keys or `NaN`) and every field passes the schema in `.github/scripts/registry.py`;
 3. each asset URL is an uploaded asset of a published release in the repository bound by ID in `owners/`, and its size and SHA-256 match after download over HTTPS (redirects off HTTPS are refused);
 4. the PR author owns the repository or has `write` or `admin` permission on it (`maintain` counts as `write`), checked before and after the downloads;
-5. for `official` plugins, the repository owner's numeric ID is in `official-owners.json`.
+5. for `official` plugins, the repository owner's numeric ID is in `official-owners.json`;
+6. the archive is a readable `.tar.gz` of plain relative paths holding only regular files and directories (no links, devices, `..` or absolute names, at most 20,000 entries and 512 MiB expanded), with a root `package.json` whose `pixie.plugin`, `version` and `engines.pixie` agree with the record. Entries are streamed and never extracted. Pixie repeats these checks when it installs.
 
 Closed-source official plugins keep their source in a private repository and publish compiled archives as release assets of a public distribution repository (`ecnivslabs/pixie-plugins-dist`), which is the repository bound in `owners/`. GitHub release assets inherit repository visibility, so a private repository cannot serve anonymous downloads.
 
