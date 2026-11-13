@@ -1,0 +1,5 @@
+__pycache__/
+_site/
+.DS_Store
+*.pem
+!registry-signing.public.pem

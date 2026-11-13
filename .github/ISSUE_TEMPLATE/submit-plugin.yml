@@ -1,0 +1,52 @@
+name: Submit a plugin
+description: Ask for a plugin to be listed in the community registry.
+title: "Submit plugin: "
+labels: [submission]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Listing is a pull request that adds one plugin (see the README). This form
+        lets maintainers review the plugin before you open it. Community plugins
+        are never loaded automatically and are installed only after the user
+        confirms.
+  - type: input
+    id: repository
+    attributes:
+      label: Source repository
+      description: Public GitHub repository that publishes the release assets.
+      placeholder: https://github.com/owner/repository
+    validations:
+      required: true
+  - type: input
+    id: release
+    attributes:
+      label: Release tag
+      placeholder: my-plugin-1.0.0
+    validations:
+      required: true
+  - type: input
+    id: license
+    attributes:
+      label: License (SPDX identifier)
+      placeholder: MIT
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: What does the plugin do?
+      description: Up to 280 characters. Include the tools, skills and slots it contributes.
+    validations:
+      required: true
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Checklist
+      options:
+        - label: The release archive is a .tar.gz and package.json declares engines.pixie.
+          required: true
+        - label: The plugin does not send data off the machine except where its description says so.
+          required: true
+        - label: I have write access to the source repository.
+          required: true

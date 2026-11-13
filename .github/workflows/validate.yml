@@ -1,0 +1,34 @@
+name: Validate PR
+
+on:
+  pull_request_target:
+    branches: [master, main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: registry-publishing-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      # The base commit supplies the scripts. Pull request files are read as git
+      # objects by check_pr.py and never executed.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate and process publishing PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REGISTRY_OWNERSHIP_TOKEN: ${{ secrets.REGISTRY_OWNERSHIP_TOKEN }}
+        run: python3 .github/scripts/check_pr.py
