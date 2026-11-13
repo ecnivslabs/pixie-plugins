@@ -16,7 +16,7 @@ Names starting with `official`, `pixie` or `ecnivs` are reserved for official pl
 | Path | Contents |
 |---|---|
 | `index/<2 chars>/<name>` | One JSON object per line, one line per published version. Append only. |
-| `meta/<name>.json` | Tier, title, summary, keywords, license, source, relevance signals, components. |
+| `meta/<name>.json` | Tier, title, summary, keywords, license, source, relevance signals, components. `relevance.cwd` and `relevance.filesRead` are globs matched locally against files in the user's project; `relevance.manifestDeps` names are matched against its `package.json` dependencies. |
 | `owners/<name>.json` | `{"repository_id": 123, "repository": "owner/name"}`. The numeric ID is authoritative. |
 | `official-owners.json` | Numeric GitHub account IDs allowed to publish official plugins. |
 | `blocklist.json` | `{name, vers, reason}` entries that Pixie disables on the next index refresh. `vers` is an exact version. |
@@ -35,6 +35,14 @@ Names starting with `official`, `pixie` or `ecnivs` are reserved for official pl
 - `yanked` is `false` when published. A maintainer sets it to `true` by hand; automation never edits existing lines.
 
 ## Publishing
+
+Create the version record from a release instead of computing hashes by hand:
+
+```sh
+python3 tools/make_record.py <owner/repo> <release tag> <name>-<version>.tar.gz <name>
+```
+
+It reads the release through `gh`, downloads the archive, checks the record against the same rules CI applies and prints one line to append to `index/<2 chars>/<name>`.
 
 Open a pull request that changes exactly one plugin.
 
