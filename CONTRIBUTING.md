@@ -40,6 +40,8 @@ The tool reads your release, downloads the files and prints the line to add.
 - `owners/<name>.json`: `{"repository_id": 123, "repository": "owner/repo"}`. Get the number with `gh api repos/<owner>/<repo> --jq .id`.
 - `meta/<name>.json`: the title, a one line summary, search keywords, license, source link and what the plugin adds. `meta/video.json` shows the shape. Set `"tier": "community"`.
 
+Write the summary for the model as well as for people. Pixie shows it to the model, which uses it to decide whether the plugin fits a task. Say what the plugin does, then when to use it, with the main use first, in 280 characters or fewer. A vague summary makes the plugin load when it should not, or not load when it should.
+
 **A new version** appends one line to the plugin's file in `index/` and changes nothing else.
 
 ## Review
