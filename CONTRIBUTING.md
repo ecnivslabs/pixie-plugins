@@ -1,79 +1,61 @@
-# Add a plugin to the registry
+# Contributing to the Pixie plugin registry
 
-Thanks for building something for Pixie. This page walks through getting a plugin listed and keeping it up to date.
+The registry lists plugins for Pixie. Contributions add a plugin, publish a new version of one, or improve the checks and documentation. Plugin changes go through a pull request that touches exactly one plugin.
 
-## Before you start
+## Before listing a plugin
 
-- The plugin lives in your own public GitHub repository.
-- It is open source, under a license that lets people use it (MIT, Apache-2.0 and similar).
-- You have write access to that repository.
-- Its name is not taken and does not start with `official`, `pixie` or `ecnivs`. Those are kept for the Pixie team.
+The plugin must live in a public GitHub repository you can write to, and it must be open source under a license that lets people use it, such as MIT or Apache-2.0. Names starting with `official`, `pixie` or `ecnivs` are reserved for the Pixie team.
 
-## Write the plugin
+If the plugin sends data off the machine, its description must say so. Plugins that hide what they do, or try to get around Pixie's checks, are removed.
 
-Use the types package so your editor knows what Pixie offers:
+## Writing the plugin
+
+Install the types package so your editor knows what Pixie provides:
 
 ```sh
 bun add -d @ecnivslabs/pixie-plugin-api
 ```
 
-Its README explains how to set up TypeScript and how to test your plugin against a real Pixie host without installing Pixie.
+Its README covers the TypeScript setup and how to test a plugin against a real Pixie host without installing Pixie.
 
-Your `package.json` needs three things:
+`package.json` needs `version`, `engines.pixie` (the Pixie versions you support, for example `>=1.0.17 <2.0.0`) and `pixie.plugin` (the file that starts the plugin).
 
-- `version`, for example `1.0.0`.
-- `engines.pixie`, the Pixie versions you support, for example `>=1.0.17 <2.0.0`.
-- `pixie.plugin`, pointing at the file that starts your plugin.
+## Publishing a release
 
-Keep it honest: if your plugin sends anything off the machine, say so in its description.
+Pack the plugin as `<name>-<version>.tar.gz` with `package.json` at the top of the archive. Create a GitHub release tagged `<name>-<version>` and upload the archive to it.
 
-## Publish a release
+## Opening the pull request
 
-1. Build your plugin and pack it as a `.tar.gz` named `<name>-<version>.tar.gz`. `package.json` must sit at the top of the archive.
-2. On GitHub, create a release with a tag such as `<name>-<version>` and upload the archive as a release file.
-
-## Open a pull request here
-
-Fork this repository, then run this from a checkout of your fork. It reads your release, downloads the files and writes the lines you need:
+Fork this repository. From a checkout of your fork, with the [GitHub CLI](https://cli.github.com) signed in, run:
 
 ```sh
-python3 tools/make_record.py <your-user>/<your-repo> <release tag> <name>-<version>.tar.gz <name>
+python3 tools/make_record.py <owner/repo> <release tag> <name>-<version>.tar.gz <name>
 ```
 
-You need the [GitHub CLI](https://cli.github.com) signed in. It prints one line. Then:
+The tool reads your release, downloads the files and prints the line to add.
 
-**For a new plugin**, add three files:
+**A new plugin** adds three files:
 
-- `index/<first two letters of the name>/<name>`: the line the tool printed.
-- `owners/<name>.json`: `{"repository_id": 123, "repository": "your-user/your-repo"}`. The number is your repository's ID (`gh api repos/<user>/<repo> --jq .id`).
-- `meta/<name>.json`: the title, a one line summary, search keywords, your license, a link to your source, and what the plugin adds. Look at `meta/video.json` for the shape, and set `"tier": "community"`.
+- `index/<first two letters of the name>/<name>`: the printed line.
+- `owners/<name>.json`: `{"repository_id": 123, "repository": "owner/repo"}`. Get the number with `gh api repos/<owner>/<repo> --jq .id`.
+- `meta/<name>.json`: the title, a one line summary, search keywords, license, source link and what the plugin adds. `meta/video.json` shows the shape. Set `"tier": "community"`.
 
-**For a new version**, add one line to the end of your plugin's file in `index/` and change nothing else.
+**A new version** appends one line to the plugin's file in `index/` and changes nothing else.
 
-Change only one plugin per pull request.
+## Review
 
-## What happens next
+An automatic check reads your release files and confirms you own the repository. It never runs your code. If it fails, the comment on the pull request says what to fix.
 
-An automatic check looks at your release files and confirms you own the repository. It never runs your code.
+A new plugin then waits for a maintainer, who reads what it does, whether the description is true and whether anything looks unsafe. A new version of an accepted plugin is merged once the check passes, and appears in Pixie after the next rebuild of the signed list.
 
-- A new plugin then waits for a person to read it. We look at what the plugin does, whether the description is true, and whether anything looks unsafe.
-- A new version of a plugin we have already accepted is merged by itself once the check passes and appears in Pixie after the registry list is rebuilt.
+## Changing or removing a version
 
-If the check fails, the comment on your pull request says what to fix.
+Publish a fix as a new release with a new line. To stop new installs of a version, open an issue asking for it to be yanked; existing installs keep working. A dangerous version can be blocked, which makes Pixie switch it off on its next refresh. To remove a plugin entirely, open an issue.
 
-## Updating, pulling and removing
+## Verification
 
-- To ship a fix, publish a new release and add a new line as above.
-- To stop people getting a version, open an issue asking us to yank it. Existing installs keep working; new installs skip it.
-- If a version is dangerous, say so in an issue. We can block it, which makes Pixie switch it off for everyone on its next refresh.
-- To remove your plugin entirely, open an issue.
-
-## Run the checks yourself
+Run the registry tests before changing anything under `.github/scripts` or `tools`:
 
 ```sh
 python3 -I -m unittest discover -s tests -p 'test_*.py' -v
 ```
-
-## Conduct
-
-Be kind and be straight. Plugins that hide what they do, collect data without saying so or try to get around Pixie's checks will be removed.
