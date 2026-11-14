@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Listing is a pull request that adds one plugin (see the README). This form
+        Listing is a pull request that adds one plugin (see CONTRIBUTING.md). This form
         lets maintainers review the plugin before you open it. Community plugins
         are never loaded automatically and are installed only after the user
         confirms.
