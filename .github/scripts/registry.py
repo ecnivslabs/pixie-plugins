@@ -9,6 +9,7 @@ import json
 import posixpath
 import re
 import tarfile
+import unicodedata
 from dataclasses import dataclass
 from urllib.parse import unquote, urlsplit
 
@@ -281,16 +282,31 @@ def publication(changed, read_base, read_head):
     return Publication(record, ownership(binding_text), meta, is_new, path)
 
 
+# Windows reserves these device names, with or without an extension (NUL.txt is NUL); COM0 and LPT0
+# are not reserved. Source: Microsoft, "Naming Files, Paths, and Namespaces".
+WINDOWS_DEVICE = re.compile(r"^(?:con|prn|aux|nul|com[1-9\u00b9\u00b2\u00b3]|lpt[1-9\u00b9\u00b2\u00b3])$", re.IGNORECASE)
+# < > : " \ | ? * , NUL and the control characters 1 to 31 are not allowed in a Windows name.
+FORBIDDEN_NAME_CHARACTER = re.compile(r'[<>:"\\|?*\x00-\x1f]')
+
+
+def fold_entry_path(name):
+    """The name a case-insensitive, normalizing filesystem treats as the same file (CWE-178)."""
+    return unicodedata.normalize("NFC", name).lower()
+
+
 def safe_entry_path(name):
-    """Plain relative POSIX paths only; mirrors the client's assertSafeEntryPath."""
+    """Plain relative POSIX paths that mean the same on every filesystem; mirrors the client's assertSafeEntryPath."""
     normalized = name[2:] if name.startswith("./") else name
     parts = normalized.split("/")
     if (
         not normalized
         or len(normalized) > 1024
         or normalized.startswith("/")
-        or any(char in normalized for char in "\\:\0")
-        or any(part in {"", ".", ".."} for part in parts)
+        or FORBIDDEN_NAME_CHARACTER.search(normalized)
+        or any(
+            part in {"", ".", ".."} or part[-1] in " ." or WINDOWS_DEVICE.match(part.split(".")[0])
+            for part in parts
+        )
         or posixpath.normpath(normalized) != normalized
     ):
         raise RegistryError(f"archive contains an unsafe path: {name!r}")
@@ -328,11 +344,16 @@ def check_archive(fileobj, record):
     """
     count = total = 0
     manifest = None
+    folded = set()
     try:
         bound = MAX_EXTRACTED_BYTES + MAX_ENTRIES * TAR_OVERHEAD_PER_ENTRY
         with tarfile.open(fileobj=BoundedReader(fileobj, bound), mode="r|") as archive:
             for member in archive:
                 name = safe_entry_path(member.name)
+                key = fold_entry_path(name)
+                if key in folded:
+                    raise RegistryError(f"archive has entries that collide by case: {name}")
+                folded.add(key)
                 if not (member.isreg() or member.isdir()):
                     raise RegistryError(f"archive entry is not a regular file or directory: {name}")
                 count += 1
