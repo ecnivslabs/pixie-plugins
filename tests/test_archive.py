@@ -46,7 +46,29 @@ class PathTests(unittest.TestCase):
                 safe_entry_path(name)
 
 
+    def test_names_windows_would_reinterpret_fail(self):
+        for name in (
+            "con", "NUL.txt", "dir/aux.tar.gz", "Com1", "lpt9.log", "com\u00b9", "a ", "dir./file", "file.",
+            "a<b", 'a"b', "a|b", "a?b", "a*b", "a\x01b", "a\x1fb",
+        ):
+            with self.assertRaises(RegistryError, msg=repr(name)):
+                safe_entry_path(name)
+
+    def test_names_that_only_look_similar_pass(self):
+        for name in (
+            "console.js", "nullable.ts", "com0.txt", "lpt0", "com10", "auxiliary/a.js", ".hidden",
+            "dist/.registry-record.json", "a b/c d.js", "Auxx",
+        ):
+            self.assertEqual(safe_entry_path(name), name)
+
+
 class ArchiveTests(unittest.TestCase):
+    def test_entries_that_fold_together_are_rejected(self):
+        with self.assertRaises(RegistryError):
+            self.check(good() + [reg("Readme.md"), reg("README.md")])
+        with self.assertRaises(RegistryError):
+            self.check(good() + [reg("caf\u00e9.js"), reg("cafe\u0301.js")])
+
     def check(self, entries, **record_changes):
         check_archive(build(entries), record(**record_changes))
 
